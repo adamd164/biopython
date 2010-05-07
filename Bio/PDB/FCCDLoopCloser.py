@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+#
+# FCCDLoopCloser.py
+#
+# This code is part of the Biopython distribution and governed by its
+# license. Please see the LICENSE file that should have been included
+# as part of this package.
 
 """
 FCCD Loop Closing Algorithm
@@ -14,17 +20,13 @@ in Calpha space,
 BMC Bioinformatics 2005, 6:159doi:10.1186/1471-2105-6-159.
 """
 
-#TODO: Code ready for BioPython. KR 2010/05/07
-
-#TODO: re-license
-
 __author__ = "Kristian Rother, Magdalena Musielak, Tomasz Puton"
-__copyright__ = "Copyright 2008, The Moderna Project"
-__license__ = "GPL"
+__license__ = "Biopython License"
 __credits__ = ["Janusz Bujnicki"]
 __maintainer__ = "Kristian Rother"
 __email__ = "krother@rubor.de"
 __status__ = "Production"
+
 
 from math import sqrt
 from numpy import array, dot, zeros, transpose, eye

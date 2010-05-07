@@ -1,26 +1,28 @@
 #!/usr/bin/env python
 #
 # CoordBuilder.py
+#
+# This code is part of the Biopython distribution and governed by its
+# license. Please see the LICENSE file that should have been included
+# as part of this package.
 """
 Implementation of the NeRF algorithm
 for constructing cartesian from torsion space coords.
 
-Approach is described in Parsons, Strauss Torsion Space .. JCC 2005
+Approach is described in:
+
+Parsons J, Holmes JB, Rojas JM, Tsai J, Strauss CE.
+Practical conversion from torsion space to Cartesian space
+for in silico protein synthesis.
+J Comput Chem. 2005 Jul 30;26(10):1063-8.
 """
-#TODO: complete reference
-
-#TODO: Code ready for BioPython. KR 2010/05/07
-
-#TODO: re-license
 
 __author__ = "Kristian Rother, Magdalena Musielak, Tomasz Puton"
-__copyright__ = "Copyright 2008, The Moderna Project"
-__license__ = "GPL"
+__license__ = "Biopython License"
 __credits__ = ["Janusz Bujnicki"]
 __maintainer__ = "Kristian Rother"
 __email__ = "krother@rubor.de"
 __status__ = "Production"
-
 
 from numpy import array, ndarray
 from Bio.PDB.Vector import Vector

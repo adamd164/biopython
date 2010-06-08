@@ -80,7 +80,7 @@ class IsostericityMatrices:
         result = self.get_isostericity(bp1, bp2, bp_type)
         return result <= max_discrepancy and result != None
         
-    def show_isosteric_bp(self, bp1, bp_type, \
+    def get_isosteric_pairs(self, bp1, bp_type, \
                           max_discrepancy=ISO_DISCREPANCY_CUTOFF):
         """
         Returns all base pairs isosteric to bp1 with the given base pair type

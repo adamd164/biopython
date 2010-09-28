@@ -7,6 +7,13 @@ dist
 #Ignore backup files from some Unix editors,
 *~
 *.swp
+*.bak
+
+#Ignore patches and any original files created by patch command
+*.diff
+*.patch
+*.orig
+*.rej
 
 #Ignore these hidden files from Mac OS X
 .DS_Store
@@ -38,16 +45,24 @@ Doc/*.aux
 Doc/*.log
 Doc/*.out
 Doc/*.toc
+Doc/*.haux
+Doc/*.htoc
 Doc/*/*.aux
 Doc/*/*.log
 Doc/*/*.out
 Doc/*/*.toc
+Doc/*/*.haux
+Doc/*/*.htoc
 Doc/*/*/*.aux
 Doc/*/*/*.log
 Doc/*/*/*.out
 Doc/*/*/*.toc
+Doc/*/*/*.haux
+Doc/*/*/*.htoc
+Doc/Tutorial.txt
 Doc/Tutorial.pdf
 Doc/Tutorial.html
+Doc/install/Installation.txt
 Doc/install/Installation.pdf
 Doc/install/Installation.html
 Doc/cookbook/motif/motif.pdf

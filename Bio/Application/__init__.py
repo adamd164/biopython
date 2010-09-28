@@ -1,25 +1,51 @@
 # Copyright 2001-2004 Brad Chapman.
-# Revisions copyright 2009 by Peter Cock.
+# Revisions copyright 2009-2010 by Peter Cock.
 # All rights reserved.
 # This code is part of the Biopython distribution and governed by its
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """General mechanisms to access applications in Biopython.
 
-This module is not intended for direct use (any more). It provides
-the basic objects for our command line wrappers such as:
+This module is not intended for direct use. It provides the basic objects which
+are subclassed by our command line wrappers, such as:
 
  - Bio.Align.Applications
  - Bio.Blast.Applications
  - Bio.Emboss.Applications
  - Bio.Sequencing.Applications
 
+These modules provide wrapper classes for command line tools to help you
+construct command line strings by setting the values of each parameter.
+The finished command line strings are then normally invoked via the built-in
+Python module subprocess.
+
+This module also includes some deprecated functionality (function generic_run
+and class ApplicationResult) which should not be used anymore.
 """
 import os, sys
 import StringIO
 import subprocess
+import re
 
 from Bio import File
+
+#Use this regular expresion to test the property names are going to
+#be valid as Python properties or arguments
+_re_prop_name = re.compile(r"[a-zA-Z][a-zA-Z0-9_]*")
+assert _re_prop_name.match("t")
+assert _re_prop_name.match("test")
+assert _re_prop_name.match("_test") is None # we don't want private names
+assert _re_prop_name.match("-test") is None
+assert _re_prop_name.match("test_name")
+assert _re_prop_name.match("test2")
+#These are reserved names in Python itself,
+_reserved_names = ["and", "del", "from", "not", "while", "as", "elif",
+                   "global", "or", "with", "assert", "else", "if", "pass",
+                   "yield", "break", "except", "import", "print", "class",
+                   "exec", "in", "raise", "continue", "finally", "is",
+                   "return", "def", "for", "lambda", "try"]
+#These are reserved names due to the way the wrappers work
+_local_reserved_names = ["set_parameter"]
 
 def generic_run(commandline):
     """Run an application with the given commandline (DEPRECATED).
@@ -33,18 +59,20 @@ def generic_run(commandline):
     This may be in issue when the program writes a large amount of
     data to standard output.
 
-    NOTE - This function is considered to be obsolete, and we intend to
-    deprecate it and then remove it in future releases of Biopython.
+    NOTE - This function is deprecated, and we intend to remove it in
+    future releases of Biopython.
     We now recommend you invoke subprocess directly, using str(commandline)
     to turn an AbstractCommandline wrapper into a command line string. This
     will give you full control of the tool's input and output as well.
     """
     import warnings
+    import Bio
     warnings.warn("Bio.Application.generic_run and the associated "
                   "Bio.Application.ApplicationResult are deprecated. "
-                  "Please use the built in Python module subprocess "
-                  "instead, as described in the Biopython Tutorial.",
-                  DeprecationWarning)
+                  "Please use the Bio.Application based wrappers with "
+                  "the built in Python module subprocess instead, as "
+                  "described in the Biopython Tutorial.",
+                  Bio.BiopythonDeprecationWarning)
     #We don't need to supply any piped input, but we setup the
     #standard input pipe anyway as a work around for a python
     #bug if this is called from a Windows GUI program.  For
@@ -53,6 +81,7 @@ def generic_run(commandline):
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
+                             universal_newlines=True,
                              shell=(sys.platform!="win32"))
     #Use .communicate as might get deadlocks with .wait(), see Bug 2804/2806
     r_out, e_out = child.communicate()
@@ -68,18 +97,20 @@ class ApplicationResult:
     This tries to pick up output information available from the program
     and make it available programmatically.
 
-    NOTE - This obsolete is considered to be obsolete, and we intend to
-    deprecate it and then remove it in future releases of Biopython.
+    NOTE - This class hase been deprecated and we intend to remove it in
+    a future release of Biopython.
     """
     def __init__(self, application_cl, return_code):
         """Intialize with the commandline from the program.
         """
         import warnings
+        import Bio
         warnings.warn("Bio.Application.ApplicationResult and the "
                       "associated function Bio.Application.generic_run "
-                      "are deprecated. Please use the built in Python "
-                      "module subprocess instead, as described in the "
-                      "Biopython Tutorial", DeprecationWarning)
+                      "are deprecated. Please use the Bio.Application "
+                      "based wrappers with the built in Python module "
+                      "subprocess instead, as described in the Biopython "
+                      "Tutorial.", Bio.BiopythonDeprecationWarning)
         self._cl = application_cl
 
         # provide the return code of the application
@@ -125,8 +156,8 @@ class AbstractCommandline(object):
     provide an implementation for a specific application.
 
     For a usage example we'll show one of the EMBOSS wrappers.  You can set
-    options when creating the wrapper object using keyword arguments - or later
-    using their corresponding properties:
+    options when creating the wrapper object using keyword arguments - or
+    later using their corresponding properties:
 
     >>> from Bio.Emboss.Applications import WaterCommandline
     >>> cline = WaterCommandline(gapopen=10, gapextend=0.5)
@@ -160,18 +191,23 @@ class AbstractCommandline(object):
     a valid command line for the tool.  For a complete example,
 
     >>> from Bio.Emboss.Applications import WaterCommandline
-    >>> cline = WaterCommandline(gapopen=10, gapextend=0.5)
-    >>> cline.asequence = "asis:ACCCGGGCGCGGT"
-    >>> cline.bsequence = "asis:ACCCGAGCGCGGT"
-    >>> cline.outfile = "temp_water.txt"
-    >>> print cline
+    >>> water_cmd = WaterCommandline(gapopen=10, gapextend=0.5)
+    >>> water_cmd.asequence = "asis:ACCCGGGCGCGGT"
+    >>> water_cmd.bsequence = "asis:ACCCGAGCGCGGT"
+    >>> water_cmd.outfile = "temp_water.txt"
+    >>> print water_cmd
     water -outfile=temp_water.txt -asequence=asis:ACCCGGGCGCGGT -bsequence=asis:ACCCGAGCGCGGT -gapopen=10 -gapextend=0.5
-    >>> cline
+    >>> water_cmd
     WaterCommandline(cmd='water', outfile='temp_water.txt', asequence='asis:ACCCGGGCGCGGT', bsequence='asis:ACCCGAGCGCGGT', gapopen=10, gapextend=0.5)
 
     You would typically run the command line via a standard Python operating
-    system call (e.g. using the subprocess module).
+    system call using the subprocess module for full control. For the simple
+    case where you just want to run the command and get the output:
+
+    stdout, stderr = water_cmd(capture=Ture)
     """
+    #Note the call example above is not a doctest as we can't handle EMBOSS
+    #(or any other tool) being missing in the unit tests.
     def __init__(self, cmd, **kwargs):
         """Create a new instance of a command line wrapper object."""
         # Init method - should be subclassed!
@@ -204,6 +240,19 @@ class AbstractCommandline(object):
                                      % name)
                 aliases.add(name)
             name = p.names[-1]
+            if _re_prop_name.match(name) is None:
+                raise ValueError("Final parameter name %s cannot be used as "
+                                 "an argument or property name in python"
+                                 % repr(name))
+            if name in _reserved_names:
+                raise ValueError("Final parameter name %s cannot be used as "
+                                 "an argument or property name because it is "
+                                 "a reserved word in python" % repr(name))
+            if name in _local_reserved_names:
+                raise ValueError("Final parameter name %s cannot be used as "
+                                 "an argument or property name due to the "
+                                 "way the AbstractCommandline class works"
+                                 % repr(name))
             #Beware of binding-versus-assignment confusion issues
             def getter(name):
                 return lambda x : x._get_parameter(name)
@@ -376,8 +425,71 @@ class AbstractCommandline(object):
             self.__dict__[name] = value
         else:
             self.set_parameter(name, value)  # treat as a parameter
+    
+    def __call__(self, stdin=None, stdout=True, stderr=True):
+        """Execute the command and waits for it to finish, returns output.
+        
+        Runs the command line tool and waits for it to finish. If it returns
+        a non-zero error level, an exception is raised. Otherwise two strings
+        are returned containing stdout and stderr.
+        
+        The optional stdin argument should be a string of data which will be
+        passed to the tool as standard input.
 
-                    
+        The optional stdout and stderr argument are treated as a booleans, and
+        control if the output should be captured (True, default), or ignored
+        by sending it to /dev/null to avoid wasting memory (False). In the
+        later case empty string(s) are returned.
+
+        Default example usage:
+
+        from Bio.Emboss.Applications import WaterCommandline
+        water_cmd = WaterCommandline(gapopen=10, gapextend=0.5, stdout=True,
+                                     asequence="a.fasta", bsequence="b.fasta")
+        print "About to run:\n%s" % water_cmd
+        std_output, err_output = water_cmd()
+
+        This functionality is similar to subprocess.check_output() added in
+        Python 2.7. In general if you require more control over running the
+        command, use subprocess directly.
+        """
+        if stdout:
+            stdout_arg = subprocess.PIPE
+        else:
+            stdout_arg = open(os.devnull)
+        if stderr:
+            stderr_arg = subprocess.PIPE
+        else:
+            stderr_arg = open(os.devnull)
+        #We may not need to supply any piped input, but we setup the
+        #standard input pipe anyway as a work around for a python
+        #bug if this is called from a Windows GUI program.  For
+        #details, see http://bugs.python.org/issue1124861
+        #
+        #Using universal newlines is important on Python 3, this
+        #gives unicode handles rather than bytes handles.
+        child_process = subprocess.Popen(str(self), stdin=subprocess.PIPE,
+                                         stdout=stdout_arg, stderr=stderr_arg,
+                                         universal_newlines=True,
+                                         shell=(sys.platform!="win32"))
+        #Use .communicate as can get deadlocks with .wait(), see Bug 2804
+        stdout_str, stderr_str = child_process.communicate(stdin)
+        #any stderr output should be merged with stdout or sent to dev null
+        if not stdout: assert not stdout_str
+        if not stderr: assert not stderr_str
+        return_code = child_process.returncode
+        if return_code:
+            try:
+                #Mimic what subprocess.call_check() and output_check() do,
+                raise subprocess.ProcessCalledError(return_code, str(self))
+            except AttributeError:
+                #Python 2.5+ needed for  subprocess.CalledProcessError
+                raise RuntimeError( \
+                    "Command %s returned non-zero exit status %i" \
+                    % (str(self), return_code))
+        return stdout_str, stderr_str
+
+
 class _AbstractParameter:
     """A class to hold information about a parameter for a commandline.
 

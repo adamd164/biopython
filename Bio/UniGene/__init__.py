@@ -246,7 +246,6 @@ class Record:
         return "<%s> %s %s\n%s" % (self.__class__.__name__,
                           self.ID, self.symbol, self.title)
 
-
 def parse(handle):
     while True:
         record = _read(handle)
@@ -323,11 +322,12 @@ def _read(handle):
         raise ValueError("Unexpected end of stream.")
 
 
-# Everything below is considered obsolete
+# Everything below is deprecated
 
 
 from Bio.ParserSupport import *
 import re
+import Bio
 
 #
 # CONSTANTS
@@ -336,6 +336,7 @@ UG_INDENT=12
 
 class UnigeneSequenceRecord:
     """Store the information for one SEQUENCE line from a Unigene file
+    (DEPRECATED).
 
     Initialize with the text part of the SEQUENCE line, or nothing.
 
@@ -363,9 +364,14 @@ class UnigeneSequenceRecord:
                  splice junction with any other sequence.  In many
                  cases, they are unspliced transcripts originating
                  from the gene.
+
+    This class is DEPRECATED; please use the read() function in this module
+    instead.
     """
     
     def __init__(self,text=None):
+        import warnings
+        warnings.warn("Bio.UniGene.UnigeneSequenceRecord is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self.acc = ''
         self.nid = ''
         self.lid = ''
@@ -398,6 +404,7 @@ class UnigeneSequenceRecord:
 
 class UnigeneProtsimRecord:
     """Store the information for one PROTSIM line from a Unigene file
+    (DEPRECATED).
 
     Initialize with the text part of the PROTSIM line, or nothing.
 
@@ -407,9 +414,14 @@ class UnigeneProtsimRecord:
     PROTID=      Sequence ID of protein
     PCT=         Percent alignment
     ALN=         length of aligned region (aa)
+
+    This class is DEPRECATED; please use the read() function in this module
+    instead.
     """
 
     def __init__(self,text=None):
+        import warnings
+        warnings.warn("Bio.UniGene.UnigeneProtsimRecord is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self.org = ''
         self.protgi = ''
         self.protid = ''
@@ -432,6 +444,7 @@ class UnigeneProtsimRecord:
 
 class UnigeneSTSRecord:
     """Store the information for one STS line from a Unigene file
+    (DEPRECATED).
 
     Initialize with the text part of the STS line, or nothing.
 
@@ -441,9 +454,14 @@ class UnigeneSTSRecord:
     ACC=         GenBank/EMBL/DDBJ accession number of STS [optional field]
     DSEG=        GDB Dsegment number [optional field]
     UNISTS=      identifier in NCBI's UNISTS database
+
+    This class is DEPRECATED; please use the read() function in this module
+    instead.
     """
 
     def __init__(self,text=None):
+        import warnings
+        warnings.warn("Bio.UniGene.UnigeneSTSRecord is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self.name = ''
         self.acc = ''
         self.dseg = ''
@@ -464,7 +482,7 @@ class UnigeneSTSRecord:
         
 
 class UnigeneRecord:
-    """Store a Unigene record
+    """Store a Unigene record (DEPRECATED).
 
     Here is what is stored:
     
@@ -486,9 +504,14 @@ class UnigeneRecord:
         self.sts          = []  # STS entries, array of STS entries
                                 # Type UnigeneSTSRecord
         self.txmap        = []  # TXMAP entries, array of TXMap entries
+
+    This class is DEPRECATED; please use the read() function in this module
+    instead.
     """
 
     def __init__(self):
+        import warnings
+        warnings.warn("Bio.UniGene.UnigeneRecord is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self.ID           = ''  # ID line
         self.species      = ''  # Hs, Bt, etc.
         self.title        = ''  # TITLE line
@@ -510,8 +533,12 @@ class UnigeneRecord:
 
 
 class _RecordConsumer(AbstractConsumer):
+    """This class is DEPRECATED; please use the read() function in this module
+    instead."""
 
     def __init__(self):
+        import warnings
+        warnings.warn("Bio.UniGene._RecordConsumer is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self.unigene_record = UnigeneRecord()
     def ID(self,line):
         self.unigene_record.ID = self._get_single_entry(line)
@@ -553,8 +580,15 @@ class _RecordConsumer(AbstractConsumer):
     
 
 class _Scanner:
-    """Scans a Unigene Flat File Format file
+    """Scans a Unigene Flat File Format file (DEPRECATED).
+
+    This class is DEPRECATED; please use the read() function in this module
+    instead.
     """
+
+    def __init__(self):
+        import warnings
+        warnings.warn("Bio.UniGene._Scanner is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
 
     def feed(self, handle, consumer):
         """feed(self, handle, consumer)
@@ -581,7 +615,12 @@ class _Scanner:
 
         
 class RecordParser(AbstractParser):
+    """This class is DEPRECATED; please use the read() function in this module
+    instead."""
+
     def __init__(self):
+        import warnings
+        warnings.warn("Bio.UniGene._RecordParser is deprecated; please use the read() function in this module instead", Bio.BiopythonDeprecationWarning)
         self._scanner = _Scanner()
         self._consumer = _RecordConsumer()
 
@@ -594,7 +633,12 @@ class RecordParser(AbstractParser):
         return self._consumer.unigene_record
 
 class Iterator:
+    """This class is DEPRECATED; please use the parse() function in this module
+    instead."""
+
     def __init__(self, handle, parser=None):
+        import warnings
+        warnings.warn("Bio.UniGene.Iterator is deprecated; please use the parse() function in this module instead", Bio.BiopythonDeprecationWarning)
         self._uhandle = File.UndoHandle(handle)
 
     def next(self):

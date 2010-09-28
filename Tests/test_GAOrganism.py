@@ -31,7 +31,7 @@ def fitness_calculator(genome):
     assert isinstance(genome, MutableSeq), "Expected MutableSeq for a genome."
 
     regular_seq = genome.toseq()
-    return int(regular_seq.data)
+    return int(regular_seq.tostring())
 
 class CreatePopulationTest(unittest.TestCase):
     """Tests for utility functions for creating populations.
@@ -119,10 +119,10 @@ class OrganismTest(unittest.TestCase):
         dif_genome = MutableSeq("1111", self.alphabet)
         dif_organism = Organism.Organism(dif_genome, fitness_calculator)
 
-        assert self.organism == same_organism, \
+        assert str(self.organism) == str(same_organism), \
                "Comparison doesn't work for identical organisms."
 
-        assert self.organism != dif_organism, \
+        assert str(self.organism) != str(dif_organism), \
                "Comparison doesn't work for different organism."
 
     def test_organism_fitness(self):
@@ -145,7 +145,7 @@ class OrganismTest(unittest.TestCase):
 
         new_organism.genome.append("1")
 
-        assert new_organism.genome != self.organism.genome, \
+        assert str(new_organism.genome) != str(self.organism.genome), \
                "Did not provide a copy of the organism."
 
     def test_provide_fitness(self):

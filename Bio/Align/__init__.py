@@ -58,6 +58,11 @@ class MultipleSeqAlignment(_Alignment):
     >>> print align[-1].id
     gi|6273291|gb|AF191665.1|AF191
 
+    And extract columns as strings:
+
+    >>> print align[:,1]
+    AAAAAAA
+
     Or, take just the first ten columns as a sub-alignment:
 
     >>> print align[:,:10]
@@ -70,7 +75,7 @@ class MultipleSeqAlignment(_Alignment):
     TATACATTAA gi|6273289|gb|AF191663.1|AF191
     TATACATTAA gi|6273291|gb|AF191665.1|AF191
     
-    Combining this alignment slicing with alignment addtion allows you to
+    Combining this alignment slicing with alignment addition allows you to
     remove a section of the alignment. For example, taking just the first
     and last ten columns:
 
@@ -123,14 +128,22 @@ class MultipleSeqAlignment(_Alignment):
         NOTE - The older Bio.Align.Generic.Alignment class only accepted a
         single argument, an alphabet.  This is still supported via a backwards
         compatible "hack" so as not to disrupt existing scripts and users, but
-        this will in future be deprecated.
+        is deprecated and will be removed in a future release.
         """
         if isinstance(records, Alphabet.Alphabet) \
         or isinstance(records, Alphabet.AlphabetEncoder):
             if alphabet is None:
-                #TODO - Deprecate this backwards compatible mode!                
+                #TODO - Remove this backwards compatible mode!                
                 alphabet = records
                 records = []
+                import warnings
+                warnings.warn("Invalid records argument: While the old "
+                              "Bio.Align.Generic.Alignment class only "
+                              "accepted a single argument (the alphabet), the "
+                              "newer Bio.Align.MultipleSeqAlignment class "
+                              "expects a list/iterator of SeqRecord objects "
+                              "(which can be an empty list) and an optional "
+                              "alphabet argument")
             else :
                 raise ValueError("Invalid records argument")
         if alphabet is not None :
@@ -191,10 +204,25 @@ class MultipleSeqAlignment(_Alignment):
         SeqRecords, you can use the extend method with a second alignment
         (provided its sequences have the same length as the original alignment).
         """
+        if len(self):
+            #Use the standard method to get the length
+            expected_length = self.get_alignment_length()
+        else:
+            #Take the first record's length
+            records = iter(records) #records arg could be list or iterator
+            try:
+                rec = records.next()
+            except StopIteration:
+                #Special case, no records
+                return
+            expected_length = len(rec)
+            self.append(rec, expected_length)
+            #Now continue to the rest of the records as usual
+            
         for rec in records:
-            self.append(rec)
-
-    def append(self, record):
+            self._append(rec, expected_length)
+            
+    def append(self, record, _private_expected_length=None):
         """Add one more SeqRecord object to the alignment as a new row.
 
         This must have the same length as the original alignment (unless this is
@@ -238,13 +266,25 @@ class MultipleSeqAlignment(_Alignment):
         8
 
         """
+        if self._records:
+            self._append(record, self.get_alignment_length())
+        else:
+            self._append(record)
+    
+    def _append(self, record, expected_length=None):
+        """Helper function (PRIVATE)."""
         if not isinstance(record, SeqRecord):
             raise TypeError("New sequence is not a SeqRecord object")
-        if self._records and len(record) != self.get_alignment_length():
+
+        #Currently the get_alignment_length() call is expensive, so we need
+        #to avoid calling it repeatedly for __init__ and extend, hence this
+        #private _append method
+        if expected_length is not None and len(record) != expected_length:
             #TODO - Use the following more helpful error, but update unit tests
             #raise ValueError("New sequence is not of length %i" \
             #                 % self.get_alignment_length())
             raise ValueError("Sequences must all be the same length")
+            
         #Using not self.alphabet.contains(record.seq.alphabet) needs fixing
         #for AlphabetEncoders (e.g. gapped versus ungapped).
         if not Alphabet._check_type_compatible([self._alphabet, record.seq.alphabet]):
@@ -404,16 +444,15 @@ class MultipleSeqAlignment(_Alignment):
         >>> align[3].seq[4]
         'C'
 
-        To get a single column (as a Seq object taking the alignment's alphabet),
-        use this syntax:
+        To get a single column (as a string) use this syntax:
 
         >>> align[:,4]
-        Seq('CCGCG', DNAAlphabet())
+        'CCGCG'
 
         Or, to get part of a column,
 
         >>> align[1:3,4]
-        Seq('CG', DNAAlphabet())
+        'CG'
 
         However, in general you get a sub-alignment,
 
@@ -443,9 +482,8 @@ class MultipleSeqAlignment(_Alignment):
             #e.g. row_or_part_row = align[6, 1:4], gives a SeqRecord
             return self._records[row_index][col_index]
         elif isinstance(col_index, int):
-            #e.g. col_or_part_col = align[1:5, 6], gives a Seq
-            return Seq("".join(rec[col_index] for rec in self._records[row_index]),
-                       self._alphabet)
+            #e.g. col_or_part_col = align[1:5, 6], gives a string
+            return "".join(rec[col_index] for rec in self._records[row_index])
         else:
             #e.g. sub_align = align[1:4, 5:7], gives another alignment
             return MultipleSeqAlignment((rec[col_index] for rec in self._records[row_index]),
@@ -498,7 +536,7 @@ class MultipleSeqAlignment(_Alignment):
         ACGGCGGT Mouse
 
         """
-        self._records.sort(cmp = lambda x, y : cmp(x.id, y.id))
+        self._records.sort(key = lambda r: r.id)
 
     def get_column(self, col):
         """Returns a string containing a given column (OBSOLETE).
@@ -507,6 +545,8 @@ class MultipleSeqAlignment(_Alignment):
         Bio.Align.Generic.Alignment object. You are encouraged to use the
         slice notation instead.
         """
+        import warnings
+        warnings.warn("This is a method provided for backwards compatibility with the old Bio.Align.Generic.Alignment object. You are encouraged to use the slice notation instead.", PendingDeprecationWarning)
         return _Alignment.get_column(self, col)
 
     def add_sequence(self, descriptor, sequence, start = None, end = None,
@@ -518,6 +558,8 @@ class MultipleSeqAlignment(_Alignment):
         Bio.Align.Generic.Alignment object. You are encouraged to use the
         append method with a SeqRecord instead.
         """
+        import warnings
+        warnings.warn("The start, end, and weight arguments are not supported! This method only provides limited backwards compatibility with the old Bio.Align.Generic.Alignment object. You are encouraged to use the append method with a SeqRecord instead.", PendingDeprecationWarning)
         #Should we handle start/end/strand information somehow? What for?
         #TODO - Should we handle weights somehow? See also AlignInfo code...
         if start is not None or end is not None or weight != 1.0:

@@ -15,12 +15,13 @@ Functions:
 qblast        Do a BLAST search using the QBLAST API.
 """
 
+import sys
 try:
-    import cStringIO as StringIO
+    from cStringIO import StringIO
 except ImportError:
-    import StringIO
+    from StringIO import StringIO
 
-
+from Bio._py3k import _as_string
 
 def qblast(program, database, sequence,
            auto_format=None,composition_based_statistics=None,
@@ -151,7 +152,8 @@ def qblast(program, database, sequence,
                                   message,
                                   {"User-Agent":"BiopythonClient"})
         handle = urllib2.urlopen(request)
-        results = handle.read()
+        results = _as_string(handle.read())
+
         # Can see an "\n\n" page while results are in progress,
         # if so just wait a bit longer...
         if results=="\n\n":
@@ -165,7 +167,7 @@ def qblast(program, database, sequence,
         if status.upper() == "READY":
             break
 
-    return StringIO.StringIO(results)
+    return StringIO(results)
 
 def _parse_qblast_ref_page(handle):
     """Extract a tuple of RID, RTOE from the 'please wait' page (PRIVATE).
@@ -173,7 +175,7 @@ def _parse_qblast_ref_page(handle):
     The NCBI FAQ pages use TOE for 'Time of Execution', so RTOE is proably
     'Request Time of Execution' and RID would be 'Request Identifier'.
     """
-    s = handle.read()
+    s = _as_string(handle.read())
     i = s.find("RID =")
     if i == -1:
         rid = None
@@ -192,16 +194,34 @@ def _parse_qblast_ref_page(handle):
         #Can we reliably extract the error message from the HTML page?
         #e.g.  "Message ID#24 Error: Failed to read the Blast query:
         #       Nucleotide FASTA provided for protein sequence"
-        #This occurs inside a <div class="error msInf"> entry so try this:
+        #or    "Message ID#32 Error: Query contains no data: Query
+        #       contains no sequence data"
+        #
+        #This used to occur inside a <div class="error msInf"> entry:
         i = s.find('<div class="error msInf">')
         if i != -1:
             msg = s[i+len('<div class="error msInf">'):].strip()
             msg = msg.split("</div>",1)[0].split("\n",1)[0].strip()
             if msg:
                 raise ValueError("Error message from NCBI: %s" % msg)
+        #In spring 2010 the markup was like this:
+        i = s.find('<p class="error">')
+        if i != -1:
+            msg = s[i+len('<p class="error">'):].strip()
+            msg = msg.split("</p>",1)[0].split("\n",1)[0].strip()
+            if msg:
+                raise ValueError("Error message from NCBI: %s" % msg)
+        #Generic search based on the way the error messages start:
+        i = s.find('Message ID#')
+        if i != -1:
+            #Break the message at the first HTML tag
+            msg = s[i:].split("<",1)[0].split("\n",1)[0].strip()
+            raise ValueError("Error message from NCBI: %s" % msg)
         #We didn't recognise the error layout :(
-        raise ValueError("No RID and no RTOE found in the 'please wait' page."
-                         " (there was probably a problem with your request)")
+        #print s
+        raise ValueError("No RID and no RTOE found in the 'please wait' page, "
+                         "there was probably an error in your request but we "
+                         "could not extract a helpful error message.")
     elif not rid:
         #Can this happen?
         raise ValueError("No RID found in the 'please wait' page."
@@ -216,3 +236,5 @@ def _parse_qblast_ref_page(handle):
     except ValueError:
         raise ValueError("A non-integer RTOE found in " \
                          +"the 'please wait' page, %s" % repr(rtoe))
+
+    

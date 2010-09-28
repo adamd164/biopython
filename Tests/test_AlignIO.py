@@ -10,7 +10,7 @@ from Bio import AlignIO
 from Bio.Align.Generic import Alignment
 from Bio.Align import AlignInfo
 
-test_write_read_alignment_formats = sorted(AlignIO._FormatToWriter.keys())
+test_write_read_alignment_formats = sorted(AlignIO._FormatToWriter)
 test_write_read_align_with_seq_count = test_write_read_alignment_formats \
                                      + ["fasta", "tab"]
 
@@ -147,6 +147,12 @@ def check_simple_write_read(alignments, indent=" "):
                 raise ValueError("%s\n\n%s\n\n%s" \
                                   % (str(e), repr(handle.read()), repr(alignments2)))
             simple_alignment_comparison(alignments, alignments2, format)
+
+        if len(alignments)>1:
+            #Try writing just one Alignment (not a list)
+            handle = StringIO()
+            SeqIO.write(alignments[0], handle, format)
+            assert handle.getvalue() == alignments[0].format(format)
 
 def simple_alignment_comparison(alignments, alignments2, format):
     assert len(alignments) == len(alignments2)

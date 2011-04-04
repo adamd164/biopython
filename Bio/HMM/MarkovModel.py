@@ -178,7 +178,7 @@ class MarkovModelBuilder:
         """
         # check the sanity of adding these states
         for state in [from_state, to_state]:
-            assert state in self._state_alphabet, \
+            assert state in self._state_alphabet.letters, \
                    "State %s was not found in the sequence alphabet" % state
 
         # ensure that the states are not already set
@@ -287,13 +287,13 @@ class HiddenMarkovModel:
         o transition_prob -- A dictionary of transition probabilities for all
         possible transitions in the sequence.
 
-        o emission_prob -- A dictionary of emissions probabilities for all
+        o emission_prob -- A dictionary of emission probabilities for all
         possible emissions from the sequence states.
 
         o transition_pseudo -- Pseudo-counts to be used for the transitions,
         when counting for purposes of estimating transition probabilities.
 
-        o emission_pseduo -- Pseudo-counts fo tbe used for the emissions,
+        o emission_pseudo -- Pseudo-counts to be used for the emissions,
         when counting for purposes of estimating emission probabilities.
         """
         self._transition_pseudo = transition_pseudo
@@ -302,34 +302,69 @@ class HiddenMarkovModel:
         self.transition_prob = transition_prob
         self.emission_prob = emission_prob
 
-        # a dictionary of the possible transitions from one letter to the next
-        # the keys are the letter, and the values are lists of letters that
-        # can be transitioned to
+        # a dictionary of the possible transitions from each state
+        # each key is a source state, mapped to a list of the destination states
+        # that are reachable from the source state via a transition
         self._transitions_from = \
            self._calculate_from_transitions(self.transition_prob)
 
+        # a dictionary of the possible transitions to each state
+        # each key is a destination state, mapped to a list of source states
+        # from which the destination is reachable via a transition
+        self._transitions_to = \
+           self._calculate_to_transitions(self.transition_prob)
+
     def _calculate_from_transitions(self, trans_probs):
-        """Calculate which 'from transitions' are allowed for each letter.
+        """Calculate which 'from transitions' are allowed for each state
 
         This looks through all of the trans_probs, and uses this dictionary
         to determine allowed transitions. It converts this information into
-        a dictionary, whose keys are the transition letters and whose
-        values are a list of allowed letters to transition to.
+        a dictionary, whose keys are source states and whose values are
+        lists of destination states reachable from the source state via a
+        transition.
         """
         from_transitions = {}
 
-        # loop over all of the different transitions
+        # loop over all of the transitions, mapping source states to lists
+        # of destination states
         for trans_key in trans_probs:
-            # if the letter to 'transition from' already exists, add the
-            # new letter which can be 'transitioned to' to the list
-            try:
-                from_transitions[trans_key[0]].append(trans_key[1])
-            # otherwise create the list and add the letter
-            except KeyError:
-                from_transitions[trans_key[0]] = []
-                from_transitions[trans_key[0]].append(trans_key[1])
+            from_state = trans_key[0]
+            to_state = trans_key[1]
+            # Add to_state to the list of destination states that are reachable
+            # from from_state. Map from_state if we haven't seen it before.
+            if from_state in from_transitions:
+                from_transitions[from_state].append(to_state)
+            # otherwise create the list and add the state
+            else:
+                from_transitions[from_state] = [to_state]
 
         return from_transitions
+
+    def _calculate_to_transitions(self, trans_probs):
+        """Calculate which 'to transitions' are allowed for each state
+
+        This looks through all of the trans_probs, and uses this dictionary
+        to determine allowed transitions. It converts this information into
+        a dictionary, whose keys are destination states and whose values are
+        lists of source states from which the destination is reachable via a
+        transition.
+        """
+        to_transitions = {}
+
+        # loop over all of the transitions, mapping destination states to lists
+        # of source states
+        for trans_key in trans_probs:
+            from_state = trans_key[0]
+            to_state = trans_key[1]
+            # Add from_state to the list of source states from which to_state
+            # is reachable. Map to_state if we haven't seen it before.
+            if to_state in to_transitions:
+                to_transitions[to_state].append(from_state)
+            # otherwise create the list and add the state
+            else:
+                to_transitions[to_state] = [from_state]
+
+        return to_transitions
 
     def get_blank_transitions(self):
         """Get the default transitions for the model.
@@ -352,16 +387,30 @@ class HiddenMarkovModel:
         return self._emission_pseudo
 
     def transitions_from(self, state_letter):
-        """Get all transitions which can happen from the given state.
+        """Get all destination states to which there are transitions from the
+        state_letter source state.
 
-        This returns all letters which the given state_letter is allowed
-        to transition to. An empty list is returned if no letters are possible.
+        This returns all letters which the given state_letter can transition
+        to. An empty list is returned if state_letter has no outgoing
+        transitions.
         """
-        try:
+        if state_letter in self._transitions_from:
             return self._transitions_from[state_letter]
-        except KeyError:
+        else:
             return []
-        
+
+    def transitions_to(self, state_letter):
+        """Get all source states from which there are transitions to the
+        state_letter destination state.
+
+        This returns all letters which the given state_letter is reachable
+        from. An empty list is returned if state_letter is unreachable.
+        """
+        if state_letter in self._transitions_to:
+            return self._transitions_to[state_letter]
+        else:
+            return []
+
     def viterbi(self, sequence, state_alphabet):
         """Calculate the most probable state path using the Viterbi algorithm.
 
@@ -391,8 +440,8 @@ class HiddenMarkovModel:
         # et al, since we are indexing the sequence going from 0 to
         # (Length - 1) not 1 to Length, like in Durbin et al.
         #
-        # v_{0}(0) = 1
-        viterbi_probs[(state_letters[0], -1)] = 1
+        # v_{0}(0) = 0
+        viterbi_probs[(state_letters[0], -1)] = 0
         # v_{k}(0) = 0 for k > 0
         for state_letter in state_letters[1:]:
             viterbi_probs[(state_letter, -1)] = 0
@@ -400,44 +449,41 @@ class HiddenMarkovModel:
         # --- recursion
         # loop over the training squence (i = 1 .. L)
         for i in range(0, len(sequence)):
-            # now loop over all of the letters in the state path
-            for main_state in state_letters:
+            # loop over all of the possible i-th states in the state path
+            for cur_state in state_letters:
                 # e_{l}(x_{i})
-                emission_part = log_emission[(main_state, sequence[i])]
+                emission_part = log_emission[(cur_state, sequence[i])]
 
-                # loop over all possible states
+                # loop over all possible (i-1)-th previous states
                 possible_state_probs = {}
-                for cur_state in self.transitions_from(main_state):
+                for prev_state in self.transitions_to(cur_state):
                     # a_{kl}
-                    trans_part = log_trans[(cur_state, main_state)]
+                    trans_part = log_trans[(prev_state, cur_state)]
 
                     # v_{k}(i - 1)
-                    viterbi_part = viterbi_probs[(cur_state, i - 1)]
+                    viterbi_part = viterbi_probs[(prev_state, i - 1)]
                     cur_prob = viterbi_part + trans_part
 
-                    possible_state_probs[cur_state] = cur_prob
+                    possible_state_probs[prev_state] = cur_prob
 
-                # finally calculate the viterbi probability using the max
+                # calculate the viterbi probability using the max
                 max_prob = max(possible_state_probs.values())
-                viterbi_probs[(main_state, i)] = (emission_part + max_prob)
+                # v_{k}(i)
+                viterbi_probs[(cur_state, i)] = (emission_part + max_prob)
 
-                # now get the most likely state
+                # get the most likely prev_state leading to cur_state
                 for state in possible_state_probs:
                     if possible_state_probs[state] == max_prob:
-                        pred_state_seq[(i - 1, main_state)] = state
+                        pred_state_seq[(i - 1, cur_state)] = state
                         break
                     
         # --- termination
         # calculate the probability of the state path
-        # loop over all letters
+        # loop over all states
         all_probs = {}
         for state in state_letters:
             # v_{k}(L)
-            viterbi_part = viterbi_probs[(state, len(sequence) - 1)]
-            # a_{k0}
-            transition_part = log_trans[(state, state_letters[0])]
-
-            all_probs[state] = viterbi_part * transition_part
+            all_probs[state] = viterbi_probs[(state, len(sequence) - 1)]
 
         state_path_prob = max(all_probs.values())
 
@@ -455,11 +501,14 @@ class HiddenMarkovModel:
         loop_seq = range(0, len(sequence))
         loop_seq.reverse()
 
-        cur_state = last_state
+        # last_state is the last state in the most probable state sequence.
+        # Compute that sequence by walking backwards in time. From the i-th
+        # state in the sequence, find the (i-1)-th state as the most
+        # probable state preceding the i-th state.
+        state = last_state
         for i in loop_seq:
-            traceback_seq.append(cur_state)
-            
-            cur_state = pred_state_seq[(i - 1, cur_state)]
+            traceback_seq.append(state)            
+            state = pred_state_seq[(i - 1, state)]
 
         # put the traceback sequence in the proper orientation
         traceback_seq.reverse()

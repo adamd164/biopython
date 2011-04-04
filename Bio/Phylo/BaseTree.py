@@ -134,7 +134,7 @@ def _function_matcher(matcher_func):
     def match(node):
         try:
             return matcher_func(node)
-        except (LookupError, AttributeError, ValueError):
+        except (LookupError, AttributeError, ValueError, TypeError):
             return False
     return match
 
@@ -555,27 +555,39 @@ class TreeMixin(object):
         parent.clades.extend(popped.clades)
         return parent
 
-    def collapse_all(self):
+    def collapse_all(self, target=None, **kwargs):
         """Collapse all the descendents of this tree, leaving only terminals.
 
-        Branch lengths are preserved, i.e. the distance to each terminal stays
-        the same.
+        Total branch lengths are preserved, i.e. the distance to each terminal
+        stays the same.
 
-        To collapse only certain elements, use the collapse method directly in a
-        loop with find_clades:
+        For example, this will safely collapse nodes with poor bootstrap
+        support:
 
-        >>> for clade in tree.find_clades(branch_length=True, order='level'):
-        ...     if (clade.branch_length < .5 and
-        ...         not clade.is_terminal() and
-        ...         clade is not self.root):
-        ...         tree.collapse(clade)
+            >>> tree.collapse_all(lambda c: c.confidence is not None and
+            ...                   c.confidence < 70)
 
-        Note that level-order traversal helps avoid strange side-effects when
-        modifying the tree while iterating over its clades.
+        This implementation avoids strange side-effects by using level-order
+        traversal and testing all clade properties (versus the target
+        specification) up front. In particular, if a clade meets the target
+        specification in the original tree, it will be collapsed.  For example,
+        if the condition is:
+
+            >>> tree.collapse_all(lambda c: c.branch_length < 0.1)
+
+        Collapsing a clade's parent node adds the parent's branch length to the
+        child, so during the execution of collapse_all, a clade's branch_length
+        may increase. In this implementation, clades are collapsed according to
+        their properties in the original tree, not the properties when tree
+        traversal reaches the clade. (It's easier to debug.) If you want the
+        other behavior (incremental testing), modifying the source code of this
+        function is straightforward.
         """
-        internals = self.find_clades(terminal=False, order='level')
+        # Read the iterable into a list to protect against in-place changes
+        internals = list(self.find_clades(target, False, 'level', **kwargs))
         # Skip the root node -- it can't be collapsed
-        internals.next()
+        if internals[0] == self.root:
+            internals.pop(0)
         for clade in internals:
             self.collapse(clade)
 
@@ -763,24 +775,40 @@ class Tree(TreeElement, TreeMixin):
         if outgroup.is_terminal():
             # Create a new root with a 0-length branch to the outgroup
             outgroup.branch_length = 0.0
-            new_root = self.root.__class__(branch_length=None, clades=[outgroup])
+            new_root = self.root.__class__(
+                    branch_length=self.root.branch_length, clades=[outgroup])
+            # The first branch reversal (see the upcoming loop) is modified
+            if len(outgroup_path) == 1:
+                # Trivial tree like '(A,B);
+                new_parent = new_root
+            else:
+                parent = outgroup_path.pop(-2)
+                parent.clades.pop(parent.clades.index(outgroup))
+                prev_blen, parent.branch_length = parent.branch_length, prev_blen
+                new_root.clades.insert(0, parent)
+                new_parent = parent
         else:
             # Use the given outgroup node as the new (trifurcating) root
             new_root = outgroup
-            new_root.branch_length = None
+            new_root.branch_length = self.root.branch_length
+            new_parent = new_root
 
         # Tracing the outgroup lineage backwards, reattach the subclades under a
         # new root clade. Reverse the branches directly above the outgroup in
         # the tree, but keep the descendants of those clades as they are.
-        new_parent = new_root
         for parent in outgroup_path[-2::-1]:
             parent.clades.pop(parent.clades.index(new_parent))
             prev_blen, parent.branch_length = parent.branch_length, prev_blen
             new_parent.clades.insert(0, parent)
             new_parent = parent
+
         # Finally, handle the original root according to number of descendents
         old_root = self.root
-        old_root.clades.pop(old_root.clades.index(new_parent))
+        if outgroup in old_root.clades:
+            assert len(outgroup_path) == 1
+            old_root.clades.pop(old_root.clades.index(outgroup))
+        else:
+            old_root.clades.pop(old_root.clades.index(new_parent))
         if len(old_root) == 1:
             # Delete the old bifurcating root & add branch lengths
             ingroup = old_root.clades[0]

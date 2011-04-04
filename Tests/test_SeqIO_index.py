@@ -4,16 +4,11 @@
 # as part of this package.
 
 """Unit tests for Bio.SeqIO.index(...) and index_db() functions."""
-import sys
-if sys.version_info[0] >= 3:
-    from Bio import MissingExternalDependencyError
-    raise MissingExternalDependencyError(\
-        "Skipping since currently this is very slow on Python 3.")
 
 try:
     import sqlite3
 except ImportError:
-    #Try and run what tests we can on Python 2.4
+    #Try and run what tests we can on Python 2.4 or Jython
     #where we don't expect this to be installed.
     sqlite3 = None
 
@@ -25,6 +20,7 @@ try:
     from io import BytesIO
 except ImportError:
     BytesIO = StringIO
+from Bio._py3k import _as_bytes, _bytes_to_string
 
 
 from Bio.SeqRecord import SeqRecord
@@ -57,6 +53,7 @@ class IndexDictTests(unittest.TestCase):
             return
 
         #In memory,
+        #note here give filenames as list of strings
         rec_dict = SeqIO.index_db(":memory:", [filename], format, alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
         #check error conditions
@@ -68,7 +65,9 @@ class IndexDictTests(unittest.TestCase):
         #Saving to file...
         index_tmp = filename + ".idx"
         #To disk,
-        rec_dict = SeqIO.index_db(index_tmp, [filename], format, alphabet)
+        #note here we give the filename as a single string
+        #to confirm that works too (convience feature).
+        rec_dict = SeqIO.index_db(index_tmp, filename, format, alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
         rec_dict.close()
         del rec_dict
@@ -184,10 +183,7 @@ class IndexDictTests(unittest.TestCase):
         self.assertRaises(NotImplementedError, rec_dict.fromkeys, [])
 
     def get_raw_check(self, filename, format, alphabet):
-        if format in SeqIO._BinaryFormats:
-            handle = open(filename, "rb")
-        else:
-            handle = open(filename, "rU")
+        handle = open(filename, "rb")
         raw_file = handle.read()
         handle.close()
         #Also checking the key_function here
@@ -210,7 +206,7 @@ class IndexDictTests(unittest.TestCase):
             if format in SeqIO._BinaryFormats:
                 handle = BytesIO(raw)
             else:
-                handle = StringIO(raw)
+                handle = StringIO(_bytes_to_string(raw))
             if format == "sff":
                 rec2 = SeqIO.SffIO._sff_read_seq_record(handle,
                             rec_dict._proxy._flows_per_read,
@@ -226,8 +222,8 @@ class IndexDictTests(unittest.TestCase):
                             rec_dict._proxy._alphabet,
                             trim=True)
             elif format == "uniprot-xml":
-                self.assertTrue(raw.startswith("<entry "))
-                self.assertTrue(raw.endswith("</entry>"))
+                self.assertTrue(raw.startswith(_as_bytes("<entry ")))
+                self.assertTrue(raw.endswith(_as_bytes("</entry>")))
                 #Currently the __getitem__ method uses this
                 #trick too, but we hope to fix that later
                 raw = """<?xml version='1.0' encoding='UTF-8'?>
@@ -237,7 +233,7 @@ class IndexDictTests(unittest.TestCase):
                 http://www.uniprot.org/support/docs/uniprot.xsd">
                 %s
                 </uniprot>
-                """ % raw
+                """ % _bytes_to_string(raw)
                 handle = StringIO(raw)
                 rec2 = SeqIO.read(handle, format, alphabet)
             else:

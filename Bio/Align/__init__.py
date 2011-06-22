@@ -3,6 +3,7 @@
 # This code is part of the Biopython distribution and governed by its
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
+#    (2011/06/22, Asaf Peer) Added - Consensus secondary structure support.
 """Code for dealing with sequence alignments.
 
 One of the most important things in this module is the MultipleSeqAlignment
@@ -24,6 +25,11 @@ class MultipleSeqAlignment(_Alignment):
     are all the same length (usually with gap characters for insertions or
     padding). The data can then be regarded as a matrix of letters, with well
     defined columns.
+
+    The consendud secondary structure can be represented in the alignment as well.
+    It can be read from Stockholm format (RFAM/PFAM) and calculated using RNAalifold
+    of the Vienna package (should be installed separately, implemented in SeqStructure
+    module
 
     You would typically create an MSA by loading an alignment file with the
     AlignIO module:
@@ -102,6 +108,8 @@ class MultipleSeqAlignment(_Alignment):
     in next generation sequencing with multiple sequencing reads which are
     much shorter than the alignment, and where there is usually a consensus or
     reference sequence with special status.
+  
+    
     """
 
     def __init__(self, records, alphabet=None):

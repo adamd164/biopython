@@ -15,6 +15,7 @@ __docformat__ = "epytext en" #Don't just use plain text in epydoc API pages!
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import Alphabet
+from Bio.RNA.Secstruc import Secstruc
 
 #We only import this and subclass it for some limited backward compatibilty.
 from Bio.Align.Generic import Alignment as _Alignment
@@ -112,7 +113,7 @@ class MultipleSeqAlignment(_Alignment):
     
     """
 
-    def __init__(self, records, alphabet=None):
+    def __init__(self, records, alphabet=None, secStruc=None):
         """Initialize a new MultipleSeqAlignment object.
 
         Arguments:
@@ -178,7 +179,23 @@ class MultipleSeqAlignment(_Alignment):
                 self._alphabet = Alphabet._consensus_alphabet(rec.seq.alphabet for \
                                                               rec in self._records \
                                                               if rec.seq is not None)
+        #Initializes the structure to an empty one
+        if secStruc:
+            self._secStruct=secStruc
+        else:
+            self._secStruct=Secstruc('.'*self.get_alignment_length())
 
+
+    def setSS(self, secStruc):
+        """Set the seconsary structure of the MSA
+        
+        - `secStruc`: A RNA.Secstruc object
+        """
+        self._secStruct = secStruc
+
+    def getSS(self):
+        return self._secStruct
+    
     def extend(self, records):
         """Add more SeqRecord objects to the alignment as rows.
 
@@ -367,7 +384,8 @@ class MultipleSeqAlignment(_Alignment):
                              " (i.e. same number or rows)")
         alpha = Alphabet._consensus_alphabet([self._alphabet, other._alphabet])
         merged = (left+right for left,right in zip(self, other))
-        return MultipleSeqAlignment(merged, alpha)
+        secst = self._secStruct+other._secStruct
+        return MultipleSeqAlignment(merged, alpha, secst)
 
     def __getitem__(self, index):
         """Access part of the alignment.
@@ -588,6 +606,11 @@ class MultipleSeqAlignment(_Alignment):
                              "supported.")
         self.append(SeqRecord(Seq(sequence, self._alphabet),
                               id = descriptor, description = descriptor))
+    def __str__(self):
+        """
+        """
+        return _Alignment.__str__(self)+'\n'+str(self._secStruct)
+    
 
 
 def _test():

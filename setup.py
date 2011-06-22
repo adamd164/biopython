@@ -256,6 +256,7 @@ PACKAGES = [
     'Bio.PopGen.SimCoal',
     'Bio.Restriction',
     'Bio.Restriction._Update',
+    'Bio.RNA',
     'Bio.SCOP',
     'Bio.SeqIO',
     'Bio.SeqUtils',

@@ -174,6 +174,13 @@ class StockholmWriter(SequentialAlignmentWriter):
 
         self.handle.write("# STOCKHOLM 1.0\n")
         self.handle.write("#=GF SQ %i\n" % count)
+        #if the secondary structure is not ... write it to the file
+        try:
+            secS =  alignment.getSS()
+            if secS.Secstruc!='.'*len(secS.Secstruc):
+                self.handle.write("#=GC SS_cons %s\n"%(secS.Secstruc))
+        except AttributeError:
+            pass
         for record in alignment:
             self._write_record(record)
         self.handle.write("//\n")
@@ -332,6 +339,7 @@ class StockholmIterator(AlignmentIterator):
         gs = {}
         gr = {}
         gf = {}
+        secStruc = None 
         passed_end_alignment = False
         while 1:
             line = self.handle.readline()
@@ -376,7 +384,12 @@ class StockholmIterator(AlignmentIterator):
                 elif line[:5] == '#=GC ':
                     #Generic per-Column annotation, exactly 1 char per column
                     #Format: "#=GC <feature> <exactly 1 char per column>"
-                    pass
+                    head, feat, text = line.split()
+                    if feat=='SS_cons':
+                        from Bio.RNA.Secstruc import Secstruc
+                        secStruc = Secstruc(text)
+                    else:
+                        pass
                 elif line[:5] == '#=GS ':
                     #Generic per-Sequence annotation, free text
                     #Format: "#=GS <seqname> <feature> <free text>"
@@ -443,7 +456,7 @@ class StockholmIterator(AlignmentIterator):
 
                 self._populate_meta_data(id, record)
                 records.append(record)
-            alignment = MultipleSeqAlignment(records, self.alphabet)
+            alignment = MultipleSeqAlignment(records, self.alphabet, secStruc=secStruc)
 
             #TODO - Introduce an annotated alignment class?
             #For now, store the annotation a new private property:

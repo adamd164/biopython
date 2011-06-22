@@ -175,15 +175,16 @@ class StockholmWriter(SequentialAlignmentWriter):
         self.handle.write("# STOCKHOLM 1.0\n")
         self.handle.write("#=GF SQ %i\n" % count)
         #if the secondary structure is not ... write it to the file
+
+        for record in alignment:
+            self._write_record(record)
+        self.handle.write("//\n")
         try:
             secS =  alignment.getSS()
             if secS.Secstruc!='.'*len(secS.Secstruc):
                 self.handle.write("#=GC SS_cons %s\n"%(secS.Secstruc))
         except AttributeError:
             pass
-        for record in alignment:
-            self._write_record(record)
-        self.handle.write("//\n")
 
     def _write_record(self, record):
         """Write a single SeqRecord to the file"""

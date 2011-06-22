@@ -15,7 +15,7 @@ __docformat__ = "epytext en" #Don't just use plain text in epydoc API pages!
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import Alphabet
-from Bio.RNA.Secstruc import Secstruc
+
 
 #We only import this and subclass it for some limited backward compatibilty.
 from Bio.Align.Generic import Alignment as _Alignment
@@ -29,7 +29,7 @@ class MultipleSeqAlignment(_Alignment):
 
     The consendud secondary structure can be represented in the alignment as well.
     It can be read from Stockholm format (RFAM/PFAM) and calculated using RNAalifold
-    of the Vienna package (should be installed separately, implemented in SeqStructure
+    of the Vienna package (should be installed separately, implemented in RNA.PredictStructure
     module
 
     You would typically create an MSA by loading an alignment file with the
@@ -180,10 +180,7 @@ class MultipleSeqAlignment(_Alignment):
                                                               rec in self._records \
                                                               if rec.seq is not None)
         #Initializes the structure to an empty one
-        if secStruc:
-            self._secStruct=secStruc
-        else:
-            self._secStruct=Secstruc('.'*self.get_alignment_length())
+        self._secStruct=secStruc
 
 
     def setSS(self, secStruc):

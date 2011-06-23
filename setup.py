@@ -230,6 +230,7 @@ PACKAGES = [
     'Bio.Graphics',
     'Bio.Graphics.GenomeDiagram',
     'Bio.HMM',
+    'Bio.Infernal',
     'Bio.InterPro',
     'Bio.KEGG',
     'Bio.KEGG.Compound',

@@ -3,6 +3,7 @@
 # This code is part of the Biopython distribution and governed by its
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
+#    (2011/06/22, Asaf Peer) Added - Consensus secondary structure support.
 """Code for dealing with sequence alignments.
 
 One of the most important things in this module is the MultipleSeqAlignment
@@ -15,6 +16,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import Alphabet
 
+
 #We only import this and subclass it for some limited backward compatibilty.
 from Bio.Align.Generic import Alignment as _Alignment
 class MultipleSeqAlignment(_Alignment):
@@ -24,6 +26,11 @@ class MultipleSeqAlignment(_Alignment):
     are all the same length (usually with gap characters for insertions or
     padding). The data can then be regarded as a matrix of letters, with well
     defined columns.
+
+    The consendud secondary structure can be represented in the alignment as well.
+    It can be read from Stockholm format (RFAM/PFAM) and calculated using RNAalifold
+    of the Vienna package (should be installed separately, implemented in RNA.PredictStructure
+    module
 
     You would typically create an MSA by loading an alignment file with the
     AlignIO module:
@@ -102,9 +109,11 @@ class MultipleSeqAlignment(_Alignment):
     in next generation sequencing with multiple sequencing reads which are
     much shorter than the alignment, and where there is usually a consensus or
     reference sequence with special status.
+  
+    
     """
 
-    def __init__(self, records, alphabet=None):
+    def __init__(self, records, alphabet=None, secStruc=None):
         """Initialize a new MultipleSeqAlignment object.
 
         Arguments:
@@ -170,7 +179,20 @@ class MultipleSeqAlignment(_Alignment):
                 self._alphabet = Alphabet._consensus_alphabet(rec.seq.alphabet for \
                                                               rec in self._records \
                                                               if rec.seq is not None)
+        #Initializes the structure to an empty one
+        self._secStruct=secStruc
 
+
+    def setSS(self, secStruc):
+        """Set the seconsary structure of the MSA
+        
+        - `secStruc`: A RNA.Secstruc object
+        """
+        self._secStruct = secStruc
+
+    def getSS(self):
+        return self._secStruct
+    
     def extend(self, records):
         """Add more SeqRecord objects to the alignment as rows.
 
@@ -359,7 +381,8 @@ class MultipleSeqAlignment(_Alignment):
                              " (i.e. same number or rows)")
         alpha = Alphabet._consensus_alphabet([self._alphabet, other._alphabet])
         merged = (left+right for left,right in zip(self, other))
-        return MultipleSeqAlignment(merged, alpha)
+        secst = self._secStruct+other._secStruct
+        return MultipleSeqAlignment(merged, alpha, secst)
 
     def __getitem__(self, index):
         """Access part of the alignment.
@@ -580,6 +603,15 @@ class MultipleSeqAlignment(_Alignment):
                              "supported.")
         self.append(SeqRecord(Seq(sequence, self._alphabet),
                               id = descriptor, description = descriptor))
+    def __str__(self):
+        """
+        """
+        outstr = _Alignment.__str__(self)
+        if self._secStruct:
+            outstr+='\n'+str(self._secStruct)
+        return outstr
+    
+    
 
 
 def _test():

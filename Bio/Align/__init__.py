@@ -606,7 +606,11 @@ class MultipleSeqAlignment(_Alignment):
     def __str__(self):
         """
         """
-        return _Alignment.__str__(self)+'\n'+str(self._secStruct)
+        outstr = _Alignment.__str__(self)
+        if self._secStruct:
+            outstr+='\n'+str(self._secStruct)
+        return outstr
+    
     
 
 

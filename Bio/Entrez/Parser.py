@@ -161,6 +161,10 @@ class DataHandler(object):
 
     def read(self, handle):
         """Set up the parser and let it parse the XML results"""
+        if hasattr(handle, "closed") and handle.closed:
+            #Should avoid a possible Segmentation Fault, see:
+            #http://bugs.python.org/issue4877
+            raise IOError("Can't parse a closed handle")
         try:
             self.parser.ParseFile(handle)
         except expat.ExpatError, e:
@@ -449,8 +453,14 @@ class DataHandler(object):
         elif urlinfo[0]=='':
             # Then this is a relative path to the DTD.
             # Look at the parent URL to find the full path.
-            url = self.dtd_urls[-1]
-            source = os.path.dirname(url)
+            try:
+                url = self.dtd_urls[-1]
+            except IndexError:
+                # Assume the default URL for DTDs if the top parent
+                # does not contain an absolute path
+                source = "http://www.ncbi.nlm.nih.gov/dtd/"
+            else:
+                source = os.path.dirname(url)
             url = os.path.join(source, systemId)
         self.dtd_urls.append(url)
         # First, try to load the local version of the DTD file

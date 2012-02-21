@@ -12,12 +12,6 @@ from cStringIO import StringIO
 from Bio import Phylo
 from Bio.Phylo import PhyloXML, NewickIO
 
-#TODO - Remove this hack
-#This will raise MissingPythonDependencyError if we don't have ElementTree
-#and thus skip the all these tests. A couple of them could be run without
-#ElementTree, but we're about drop Python 2.4 support so I don't mind.
-from Bio.Phylo import PhyloXMLIO as PXIO
-del PXIO
 
 # Example Newick and Nexus files
 EX_NEWICK = 'Nexus/int_node_labels.nwk'
@@ -43,6 +37,22 @@ class IOTests(unittest.TestCase):
         self.assertEqual(len(trees), 3)
         for tree in trees:
             self.assertEqual(len(tree.get_terminals()), 9)
+
+    def test_newick_write(self):
+        """Parse a Nexus file with multiple trees."""
+        # Tree with internal node labels
+        mem_file = StringIO()
+        tree = Phylo.read(StringIO('(A,B,(C,D)E)F;'), 'newick')
+        Phylo.write(tree, mem_file, 'newick')
+        mem_file.seek(0)
+        tree2 = Phylo.read(mem_file, 'newick')
+        # Sanity check
+        self.assertEqual(tree2.count_terminals(), 4)
+        # Check internal node labels were retained
+        internal_names = set(c.name
+                for c in tree2.get_nonterminals()
+                if c is not None)
+        self.assertEqual(internal_names, set(('E', 'F')))
 
     def test_format_branch_length(self):
         """Custom format string for Newick branch length serialization."""

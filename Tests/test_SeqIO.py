@@ -33,7 +33,8 @@ dna_alphas = [Alphabet.generic_dna]
 rna_alphas = [Alphabet.generic_rna]
 nucleotide_alphas = [Alphabet.generic_nucleotide,
                      Alphabet.Gapped(Alphabet.generic_nucleotide)]
-no_alpha_formats = ["fasta","clustal","phylip","phylip-relaxed","tab","ig",
+no_alpha_formats = ["fasta","clustal","phylip","phylip-relaxed",
+                    "phylip-sequential","tab","ig",
                     "stockholm","emboss", "fastq","fastq-solexa",
                     "fastq-illumina","qual"]
 possible_unknown_seq_formats = ["qual", "genbank", "gb", "embl", "imgt"]
@@ -153,10 +154,11 @@ test_files = [ \
     ("embl",   False, 'EMBL/AAA03323.embl', 1), # 2008, PA line but no AC
     ("embl",   False, 'EMBL/AE017046.embl', 1), #See also NC_005816.gb
     ("embl",   False, 'EMBL/Human_contigs.embl', 2), #contigs, no sequences
+    ("embl",   False, 'EMBL/location_wrap.embl', 1), #wrapped locations and unspecified type
     ("embl",   False, 'EMBL/A04195.imgt', 1), # features over indented for EMBL
     ("imgt",   False, 'EMBL/A04195.imgt', 1), # features over indented for EMBL
     ("stockholm", True,  'Stockholm/simple.sth', 2),
-    ("stockholm", True,  'Stockholm/funny.sth', 5),
+    ("stockholm", True,  'Stockholm/funny.sth', 6),
 #Following PHYLIP files are currently only used here and in test_AlignIO.py,
 #and are mostly from Joseph Felsenstein's PHYLIP v3.6 documentation:
     ("phylip", True,  'Phylip/reference_dna.phy', 6),
@@ -202,8 +204,35 @@ test_files = [ \
     ("fastq-illumina", False,'Quality/illumina_faked.fastq', 1),
     ("fastq-solexa", False, 'Quality/solexa_faked.fastq', 1),
     ("fastq-solexa", True, 'Quality/solexa_example.fastq', 5),
+#Following examples are also used in test_SeqXML.py
+    ("seqxml", False, 'SeqXML/dna_example.xml', 4),
+    ("seqxml", False, 'SeqXML/rna_example.xml', 5),
+    ("seqxml", False, 'SeqXML/protein_example.xml', 5),
+#Following examples are also used in test_SeqIO_AbiIO.py
+    ("abi", False, 'Abi/310.ab1', 1),
+    ("abi", False, 'Abi/3100.ab1', 1),
+    ("abi", False, 'Abi/3730.ab1', 1),
     ]
 
+class ForwardOnlyHandle(object):
+    """Mimic a network handle without seek and tell methods etc."""
+    def __init__(self, handle):
+        self._handle = handle
+
+    def __iter__(self):
+        return iter(self._handle)
+
+    def read(self, length=None):
+        if length is None:
+            return self._handle.read()
+        else:
+            return self._handle.read(length)
+
+    def readline(self):
+        return self._handle.readline()
+
+    def close(self):
+        return self._handle.close()
 
 def compare_record(record_one, record_two):
     """This is meant to be a strict comparison for exact agreement..."""
@@ -310,8 +339,9 @@ def check_simple_write_read(records, indent=" "):
                 print "Failed: Probably len() of None"
             else:
                 print indent+"Failed: %s" % str(e)
-            assert format != t_format, \
-                   "Should be able to re-write in the original format!"
+            if records[0].seq.alphabet.letters is not None:
+                assert format != t_format, \
+                       "Should be able to re-write in the original format!"
             #Carry on to the next format:
             continue
 
@@ -351,7 +381,7 @@ def check_simple_write_read(records, indent=" "):
                 assert r1.seq.tostring() == r2.seq.tostring()
             #Beware of different quirks and limitations in the
             #valid character sets and the identifier lengths!
-            if format=="phylip":
+            if format in ["phylip", "phylip-sequential"]:
                 assert r1.id.replace("[","").replace("]","")[:10] == r2.id, \
                        "'%s' vs '%s'" % (r1.id, r2.id)
             elif format=="phylip-relaxed":
@@ -398,7 +428,9 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
     assert os.path.isfile(t_filename), t_filename
 
     #Try as an iterator using handle
-    records  = list(SeqIO.parse(handle=open(t_filename,mode), format=t_format))
+    h = open(t_filename,mode)
+    records  = list(SeqIO.parse(handle=h, format=t_format))
+    h.close()
     assert len(records)  == t_count, \
          "Found %i records but expected %i" % (len(records), t_count)
 
@@ -410,7 +442,8 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
 
     #Try using the iterator with the next() method
     records3 = []
-    seq_iterator = SeqIO.parse(handle=open(t_filename,mode), format=t_format)
+    h = open(t_filename,mode)
+    seq_iterator = SeqIO.parse(handle=h, format=t_format)
     while True:
         try:
             record = seq_iterator.next()
@@ -418,9 +451,11 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
             break
         assert record is not None, "Should raise StopIteration not return None"
         records3.append(record)
+    h.close()
 
     #Try a mixture of next() and list (a torture test!)
-    seq_iterator = SeqIO.parse(handle=open(t_filename,mode), format=t_format)
+    h = open(t_filename,mode)
+    seq_iterator = SeqIO.parse(handle=h, format=t_format)
     try:
         record = seq_iterator.next()
     except StopIteration:
@@ -431,9 +466,16 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
     else:
         records4 = []
     assert len(records4) == t_count
+    h.close()
 
     #Try a mixture of next() and for loop (a torture test!)
-    seq_iterator = SeqIO.parse(handle=open(t_filename,mode), format=t_format)
+    #with a forward-only-handle
+    if t_format == "abi":
+        #Temp hack
+        h = open(t_filename, mode)
+    else:
+        h = ForwardOnlyHandle(open(t_filename, mode))
+    seq_iterator = SeqIO.parse(h, format=t_format)
     try:
         record = seq_iterator.next()
     except StopIteration:
@@ -445,6 +487,7 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
     else:
         records5 = []
     assert len(records5) == t_count
+    h.close()
 
     for i in range(t_count):
         record = records[i]
@@ -492,7 +535,7 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
 
     # Check Bio.SeqIO.read(...)
     if t_count == 1:
-        record = SeqIO.read(handle=open(t_filename), format=t_format)
+        record = SeqIO.read(handle=open(t_filename,mode), format=t_format)
         assert isinstance(record, SeqRecord)
     else:
         try:
@@ -505,9 +548,11 @@ for (t_format, t_alignment, t_filename, t_count) in test_files:
     # Check alphabets
     for record in records:
         base_alpha = Alphabet._get_base_alphabet(record.seq.alphabet)
-        assert isinstance(base_alpha, Alphabet.SingleLetterAlphabet)
-        if t_format in no_alpha_formats:
-            assert base_alpha == Alphabet.single_letter_alphabet # Too harsh?
+        if isinstance(base_alpha, Alphabet.SingleLetterAlphabet):
+            if t_format in no_alpha_formats:
+                assert base_alpha == Alphabet.single_letter_alphabet # Too harsh?
+        else:
+            base_alpha = None
     if base_alpha is None:
         good = []
         bad =[]

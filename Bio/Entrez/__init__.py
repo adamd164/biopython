@@ -65,6 +65,8 @@ _open        Internally used function.
 import urllib, urllib2, time, warnings
 import os.path
 
+from Bio._py3k import _binary_to_string_handle
+
 email = None
 tool = "biopython"
 
@@ -109,7 +111,15 @@ def efetch(db, **keywds):
     """
     cgi='http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
     variables = {'db' : db}
-    variables.update(keywds)
+    keywords = keywds
+    if "id" in keywds and isinstance(keywds["id"], list):
+        #Fix for NCBI change (probably part of EFetch 2,0, Feb 2012) where
+        #a list of ID strings now gives HTTP Error 500: Internal server error
+        #This was turned into ...&id=22307645&id=22303114&... which used to work
+        #while now the NCBI appear to insist on ...&id=22301129,22299544,...
+        keywords = keywds.copy() #Don't alter input dict!
+        keywords["id"] = ",".join(keywds["id"])
+    variables.update(keywords)
     return _open(cgi, variables)
 
 def esearch(db, term, **keywds):
@@ -348,6 +358,7 @@ a user at the email address provided before blocking access to the
 E-utilities.""", UserWarning)
     # Open a handle to Entrez.
     options = urllib.urlencode(params, doseq=True)
+    #print cgi + "?" + options
     try:
         if post:
             #HTTP POST
@@ -359,6 +370,6 @@ E-utilities.""", UserWarning)
     except urllib2.HTTPError, exception:
         raise exception
 
-    return handle
+    return _binary_to_string_handle(handle)
 
 _open.previous = 0

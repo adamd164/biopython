@@ -38,16 +38,12 @@ class IndexDictTests(unittest.TestCase):
     """Cunning unit test where methods are added at run time."""
     def simple_check(self, filename, format, alphabet):
         """Check indexing (without a key function)."""
-        if format in SeqIO._BinaryFormats:
-            mode = "rb"
-        else :
-            mode = "r"
-
-        id_list = [rec.id for rec in \
-                   SeqIO.parse(open(filename, mode), format, alphabet)]
+        id_list = [rec.id for rec in SeqIO.parse(filename, format, alphabet)]
 
         rec_dict = SeqIO.index(filename, format, alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
+        rec_dict._proxy._handle.close() #TODO - Better solution
+        del rec_dict
 
         if not sqlite3:
             return
@@ -56,6 +52,9 @@ class IndexDictTests(unittest.TestCase):
         #note here give filenames as list of strings
         rec_dict = SeqIO.index_db(":memory:", [filename], format, alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
+        rec_dict.close()
+        del rec_dict
+
         #check error conditions
         self.assertRaises(ValueError, SeqIO.index_db,
                           ":memory:", format="dummy")
@@ -64,6 +63,9 @@ class IndexDictTests(unittest.TestCase):
 
         #Saving to file...
         index_tmp = filename + ".idx"
+        if os.path.isfile(index_tmp):
+            os.remove(index_tmp)
+
         #To disk,
         #note here we give the filename as a single string
         #to confirm that works too (convience feature).
@@ -71,11 +73,13 @@ class IndexDictTests(unittest.TestCase):
         self.check_dict_methods(rec_dict, id_list, id_list)
         rec_dict.close()
         del rec_dict
+
         #Now reload it...
         rec_dict = SeqIO.index_db(index_tmp, [filename], format, alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
         rec_dict.close()
         del rec_dict
+
         #Now reload without passing filenames and format
         rec_dict = SeqIO.index_db(index_tmp, alphabet=alphabet)
         self.check_dict_methods(rec_dict, id_list, id_list)
@@ -85,17 +89,13 @@ class IndexDictTests(unittest.TestCase):
     
     def key_check(self, filename, format, alphabet):
         """Check indexing with a key function."""
-        if format in SeqIO._BinaryFormats:
-            mode = "rb"
-        else :
-            mode = "r"
-
-        id_list = [rec.id for rec in \
-                   SeqIO.parse(open(filename, mode), format, alphabet)]
+        id_list = [rec.id for rec in SeqIO.parse(filename, format, alphabet)]
 
         key_list = [add_prefix(id) for id in id_list]
         rec_dict = SeqIO.index(filename, format, alphabet, add_prefix)
         self.check_dict_methods(rec_dict, key_list, id_list)
+        rec_dict._proxy._handle.close() #TODO - Better solution
+        del rec_dict
 
         if not sqlite3:
             return
@@ -111,20 +111,26 @@ class IndexDictTests(unittest.TestCase):
         self.assertRaises(ValueError, SeqIO.index_db,
                           ":memory:", filenames=["dummy"],
                           key_function=add_prefix)
+        rec_dict.close()
+        del rec_dict
 
         #Saving to file...
         index_tmp = filename + ".key.idx"
+        if os.path.isfile(index_tmp):
+            os.remove(index_tmp)
         rec_dict = SeqIO.index_db(index_tmp, [filename], format, alphabet,
                                   add_prefix)
         self.check_dict_methods(rec_dict, key_list, id_list)
         rec_dict.close()
         del rec_dict
+
         #Now reload it...
         rec_dict = SeqIO.index_db(index_tmp, [filename], format, alphabet,
                                   add_prefix)
         self.check_dict_methods(rec_dict, key_list, id_list)
         rec_dict.close()
         del rec_dict
+
         #Now reload without passing filenames and format
         rec_dict = SeqIO.index_db(index_tmp, alphabet=alphabet,
                                   key_function=add_prefix)
@@ -239,6 +245,8 @@ class IndexDictTests(unittest.TestCase):
             else:
                 rec2 = SeqIO.read(handle, format, alphabet)
             self.assertEqual(True, compare_record(rec1, rec2))
+        rec_dict._proxy._handle.close() #TODO - Better solution
+        del rec_dict
 
     if sqlite3:
         def test_duplicates_index_db(self):
@@ -312,11 +320,6 @@ tests = [
 for filename, format, alphabet in tests:
     assert format in _FormatToRandomAccess
 
-    #TODO - remove this hack once we drop Python 2.4
-    if format=="uniprot-xml" and SeqIO.UniprotIO.ElementTree is None:
-        #skip this test
-        continue
-    
     def funct(fn,fmt,alpha):
         f = lambda x : x.simple_check(fn, fmt, alpha)
         f.__doc__ = "Index %s file %s defaults" % (fmt, fn)

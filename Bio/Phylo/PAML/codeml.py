@@ -60,8 +60,10 @@ class Codeml(Paml):
                         "Small_Diff": None,
                         "cleandata": None, 
                         "fix_blength": None, 
-                        "method": None}
-                        
+                        "method": None,
+                        "rho": None,
+                        "fix_rho": None}
+        
     def write_ctl_file(self):
         """Dynamically build a CODEML control file from the options.
         
@@ -104,6 +106,7 @@ class Codeml(Paml):
                 uncommented = line.split("*",1)[0]
                 if uncommented != "":
                     if "=" not in uncommented:
+                        ctl_handle.close()
                         raise AttributeError, \
                             "Malformed line in control file:\n%r" % line
                     (option, value) = uncommented.split("=")
@@ -121,10 +124,12 @@ class Codeml(Paml):
                             try:
                                 site_classes[n] = int(site_classes[n])
                             except:
+                                ctl_handle.close()
                                 raise TypeError, \
                                     "Invalid site class: %s" % site_classes[n]
                         temp_options["NSsites"] = site_classes
                     elif option not in self._options:
+                        ctl_handle.close()
                         raise KeyError, "Invalid option: %s" % option
                     else:
                         if "." in value:
@@ -184,7 +189,7 @@ class Codeml(Paml):
             raise IOError, "The specified tree file does not exist."
         Paml.run(self, ctl_file, verbose, command)
         if parse:
-            results = read(self._rel_out_file)
+            results = read(self.out_file)
         else:
             results = None
         return results        

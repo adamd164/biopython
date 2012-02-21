@@ -89,8 +89,10 @@ class cmSearchCMD(AbstractCommandline):
         self.parameters = [
             _Option(['--forecast','forecast'],'Forecast the time of execution, not searching',
                     equate=False,is_required=False),
+            _Switch(['--ga','usega'],'Search above the defined cutoff'),
             _Option(['-Z','size'],'Database size in MB',equate=False),
-            _Switch(['-g','glocal'],'Performs a glocal alignment search',equate=False),
+            _Switch(['-g','glocal'],'Performs a glocal alignment search'),
+            _Switch(['--noalign','noalign'],'Prints just the start, stop, score'),
             _Argument(['modelname'],'name of model',filename=True,is_required=True),
             _Argument(['database'],'Database file', filename=True,is_required=True)
 

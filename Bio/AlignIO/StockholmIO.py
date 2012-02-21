@@ -178,14 +178,14 @@ class StockholmWriter(SequentialAlignmentWriter):
 
         for record in alignment:
             self._write_record(record)
-        self.handle.write("//\n")
         try:
             secS =  alignment.getSS()
             if secS.Secstruc!='.'*len(secS.Secstruc):
                 self.handle.write("#=GC SS_cons %s\n"%(secS.Secstruc))
         except AttributeError:
             pass
-
+        self.handle.write("//\n")
+        
     def _write_record(self, record):
         """Write a single SeqRecord to the file"""
         if self._length_of_sequences != len(record.seq):

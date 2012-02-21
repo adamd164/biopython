@@ -22,6 +22,8 @@ Python module subprocess.
 import os, sys
 import StringIO
 import subprocess
+#added this to make the applications work with threads, otherwise they might delete each other
+subprocess._cleanup = lambda: None
 import re
 
 #TODO - Remove this hack once we drop Python 2.4 support.
